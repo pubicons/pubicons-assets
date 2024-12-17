@@ -3,6 +3,10 @@ import path from "path";
 import { config } from "dotenv";
 import { Client } from "pg";
 import { createClient } from "redis";
+import { HTTPRouter } from "./core/http/http_router";
+import { IMAGE_HTTP_HANDLER } from "./api/image";
+import { HTTPConnection } from "./core/http/http_connection";
+import { PathUtil } from "./core/utils/path";
 
 /** Initializes configuation values in node.js about .env files. */
 config();
@@ -17,10 +21,24 @@ export const PG_CLIENT = new Client({
 
 /** The value defines the currently active redis client instance. */
 export const REDIS_CLIENT = createClient({
+    socket: {
+        // Based on the external port (internal port is the default port of redis)
+        port: Number.parseInt(process.env.REDIS_PORT as string)
+    },
     password: process.env.REDIS_PASSWORD
 });
 
 http.createServer((request, response) => {
-    console.log(request.url);
+    if (!request.url) {
+        response.writeHead(400);
+        response.end();
+        return;
+    }
+
+    const ROUTER = new HTTPRouter("image", IMAGE_HTTP_HANDLER);
+    ROUTER.perform(new HTTPConnection(PathUtil.toList(request.url!), request, response))
 })
-.listen(8081);
+.listen(8081, () => {
+    PG_CLIENT.connect();
+    REDIS_CLIENT.connect();
+});

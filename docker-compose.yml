@@ -7,7 +7,7 @@ services:
     volumes:
       - ./db/postgres:/var/lib/postgresql/data
     ports:
-      - "${POSTGRES_PORT}:${POSTGRES_PORT}"
+      - "${POSTGRES_PORT}:5432"
     environment:
       POSTGRES_DB: ${POSTGRES_DB}
       POSTGRES_USER: ${POSTGRES_USER}
@@ -26,7 +26,7 @@ services:
       - ./db/redis/data:/data
       - ./redis.conf:/usr/local/etc/redis/redis.conf
     ports:
-      - "${REDIS_PORT}:${REDIS_PORT}"
+      - "${REDIS_PORT}:6379"
 
   liquibase:
     container_name: PostgreSQL-Liquibase-Assets
@@ -38,7 +38,7 @@ services:
       - ./liquibase/changelog:/liquibase/changelog
     command: >
       --changeLogFile=/changelog/changelog-config.yml
-      --url=jdbc:postgresql://postgres:${POSTGRES_PORT}/${POSTGRES_DB}
+      --url=jdbc:postgresql://postgres:5432/${POSTGRES_DB}
       --username=${POSTGRES_USER}
       --password=${POSTGRES_PASSWORD}
       update

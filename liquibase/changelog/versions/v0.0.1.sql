@@ -1,0 +1,7 @@
+CREATE DOMAIN UUID AS VARCHAR(36);
+
+CREATE TABLE "Images"(
+    id UUID PRIMARY KEY,
+    avif BYTEA,
+    webp BYTEA
+);
