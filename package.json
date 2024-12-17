@@ -1,8 +1,9 @@
 {
   "scripts": {
     "serve": "npm-run-all --parallel start alive",
-    "start": "ts-node src/http/index.ts",
+    "start": "ts-node src/index.ts",
     "watch": "nodemon --watch src/**/* --ext ts",
+    "build": "git submodule update --init --remote --recursive",
     "alive": "docker compose up"
   },
   "devDependencies": {
