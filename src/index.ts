@@ -1,12 +1,10 @@
 import http from "http";
-import path from "path";
 import { config } from "dotenv";
 import { Client } from "pg";
 import { createClient } from "redis";
-import { HTTPRouter } from "./core/http/http_router";
+import { HTTPRouter, PathUtil } from "core";
 import { IMAGE_HTTP_HANDLER } from "./api/image";
-import { HTTPConnection } from "./core/http/http_connection";
-import { PathUtil } from "./core/utils/path";
+import { HTTPConnection } from "core/src";
 
 /** Initializes configuation values in node.js about .env files. */
 config();

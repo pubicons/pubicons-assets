@@ -1,9 +1,8 @@
 import sharp from "sharp";
-import { HTTPHandler } from "../core/http/http_handler";
-import { UUID } from "../core/utils/uuid";
 import { PG_CLIENT } from "..";
-import { PathUtil } from "../core/utils/path";
-import { APIException } from "../core/api/http";
+import { HTTPHandler, PathUtil } from "core";
+import { UUID } from "core/src";
+import { APIException } from "core/src/api";
 
 enum ImageException {
     INVALID_UUID = "invalid_uuid"
