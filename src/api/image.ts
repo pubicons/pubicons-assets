@@ -9,15 +9,47 @@ enum ImageException {
 }
 
 export const IMAGE_HTTP_HANDLER = new HTTPHandler({
-    post: async (_, response, buffer) => {
-        const avif = await sharp(buffer).toFormat("avif").toBuffer();
-        const webp = await sharp(buffer).toFormat("webp").toBuffer();
+    post: async (request, response, buffer) => {
+        const params = PathUtil.toUrl(request.url!).searchParams;
+        const fit = params.get("fit") as keyof sharp.FitEnum;
+        const width = params.get("width");
+        const height = params.get("height");
+
+        if (fit != null
+         && fit != "contain"
+         && fit != "cover"
+         && fit != "fill"
+         && fit != "inside"
+         && fit != "outside") {
+            response.writeHead(400);
+            response.end(APIException.INVALID_REQUEST_FORMAT);
+            return;
+        }
+
+        // The validation about the resize options for a given image.
+        if (width && isNaN(parseInt(width)) || height && isNaN(parseInt(height))) {
+            response.writeHead(400);
+            response.end(APIException.INVALID_REQUEST_FORMAT);
+            return;
+        }
+
+        let avif = sharp(buffer).toFormat("avif");
+        let webp = sharp(buffer).toFormat("webp");
         const uuid = UUID.v4();
+
+        // Settings resizing a given image to the given size options.
+        const resizeOptions: sharp.ResizeOptions = {fit: fit ?? "cover"};
+        if (width ) resizeOptions.width = parseInt(width);
+        if (height) resizeOptions.height = parseInt(height);
+        if (width || height) {
+            avif = avif.resize(resizeOptions);
+            webp = webp.resize(resizeOptions);
+        }
 
         await PG_CLIENT.query(`INSERT INTO "Images"("id", "avif", "webp") VALUES($1, $2, $3)`, [
             uuid,
-            avif,
-            webp
+            await avif.toBuffer(),
+            await webp.toBuffer()
         ]);
 
         response.writeHead(200);
