@@ -53,5 +53,25 @@ export const IMAGE_HTTP_HANDLER = new HTTPHandler({
             response.writeHead(400);
             response.end(APIException.MISSING_REQUEST_FORMAT);
         }
+    },
+    delete: async (request, response) => {
+        const params = PathUtil.toUrl(request.url!).searchParams;
+        const uuid = params.get("uuid");
+        if (uuid) {
+            const result = await PG_CLIENT.query(`DELETE FROM "Images" WHERE "id" = $1 RETURNING "id"`, [uuid]);
+            
+            if (result.rowCount == null
+             || result.rowCount == 0) {
+                response.writeHead(409);
+                response.end(ImageException.INVALID_UUID);
+                return;
+            }
+
+            response.writeHead(200);
+            response.end();
+        } else {
+            response.writeHead(400);
+            response.end(APIException.MISSING_REQUEST_FORMAT);
+        }
     }
 });
