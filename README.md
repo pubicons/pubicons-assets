@@ -19,6 +19,16 @@ And then, create a `redis.conf` file in the server/ folder and write the code ac
 requirepass ...{0}
 ```
 
+# Download FFmpeg
+Must download the external dependency `FFmpeg`. And extract the downloaded archive and place the contents in a directory (e.g., C:\Program Files\ffmpeg). And add the C:\ffmpeg\bin directory to the Path system environment variable.
+
+> Need to verify the setup by running ffmpeg -version in the command prompt.
+
+| Type | URL |
+| ---- | ------ |
+| Link 1 | https://www.ffmpeg.org |
+| Link 2 | https://github.com/BtbN/FFmpeg-Builds |
+
 # Get Started
 Enter the following commands in turn in the terminal.
 
@@ -26,12 +36,3 @@ Enter the following commands in turn in the terminal.
 - `npm run build`: installing git submodule.
 - `npm run alive`: initialing about docker compose.
 - `npm run watch` or `npm run start`
-
-# External Dependencies
-All external dependencies specified in the table below must be downloaded.
-
-| Name | Source |
-| ---- | ------ |
-| FFmpeg | https://www.ffmpeg.org/ |
-| Node.js | https://nodejs.org/ |
-| Docker | https://www.docker.com/ |
