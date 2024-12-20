@@ -20,7 +20,7 @@ requirepass ...{0}
 ```
 
 # Download FFmpeg
-Must download the external dependency `FFmpeg`. And extract the downloaded archive and place the contents in a directory (e.g., C:\Program Files\ffmpeg). And add the C:\ffmpeg\bin directory to the Path system environment variable.
+Must download the external dependency `FFmpeg`. And extract the downloaded archive and place the contents in a directory (e.g., C:\Program Files\ffmpeg). And add the directory (e.g., C:\Program Files\ffmpeg) to the Path system environment variable.
 
 > Need to verify the setup by running ffmpeg -version in the command prompt.
 
