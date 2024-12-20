@@ -5,6 +5,7 @@ import { createClient } from "redis";
 import { HTTPRouter, PathUtil } from "core";
 import { IMAGE_HTTP_HANDLER } from "./api/image";
 import { HTTPConnection } from "core/src";
+import { VIDEO_HTTP_HANDLER } from "./api/video";
 
 /** Initializes configuation values in node.js about .env files. */
 config();
@@ -33,8 +34,16 @@ http.createServer((request, response) => {
         return;
     }
 
-    const ROUTER = new HTTPRouter("image", IMAGE_HTTP_HANDLER);
-    ROUTER.perform(new HTTPConnection(PathUtil.toList(request.url!), request, response))
+    const ROUTER = new HTTPRouter("", undefined, [
+        new HTTPRouter("image", IMAGE_HTTP_HANDLER),
+        new HTTPRouter("video", VIDEO_HTTP_HANDLER)
+    ]);
+
+    ROUTER.delegate(
+        new HTTPConnection(PathUtil.toList(request.url!),
+        request, // required
+        response // requried
+    ))
 })
 .listen(8081, () => {
     PG_CLIENT.connect();

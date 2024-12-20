@@ -39,7 +39,7 @@ export const IMAGE_HTTP_HANDLER = new HTTPHandler({
 
         // Settings resizing a given image to the given size options.
         const resizeOptions: sharp.ResizeOptions = {fit: fit ?? "cover"};
-        if (width ) resizeOptions.width = parseInt(width);
+        if (width ) resizeOptions.width  = parseInt(width);
         if (height) resizeOptions.height = parseInt(height);
         if (width || height) {
             avif = avif.resize(resizeOptions);

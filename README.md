@@ -26,3 +26,12 @@ Enter the following commands in turn in the terminal.
 - `npm run build`: installing git submodule.
 - `npm run alive`: initialing about docker compose.
 - `npm run watch` or `npm run start`
+
+# External Dependencies
+All external dependencies specified in the table below must be downloaded.
+
+| Name | Source |
+| ---- | ------ |
+| FFmpeg | https://www.ffmpeg.org/ |
+| Node.js | https://nodejs.org/ |
+| Docker | https://www.docker.com/ |
