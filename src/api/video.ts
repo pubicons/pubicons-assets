@@ -6,9 +6,7 @@ import ffmpeg from "fluent-ffmpeg";
 export const VIDEO_HTTP_HANDLER = new HTTPHandler({
     post: async (request, response, buffer) => {
         // Make directory for saving temp video files.
-        if (fs.existsSync("db/videos")) {
-            fs.mkdirSync("db/videos", {recursive: true});
-        }
+        fs.mkdirSync("db/videos", {recursive: true});
 
         const uuid = UUID.v4();
         const command = ffmpeg();
