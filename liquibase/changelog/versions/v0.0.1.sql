@@ -5,3 +5,9 @@ CREATE TABLE "Images"(
     avif BYTEA,
     webp BYTEA
 );
+
+CREATE TABLE "Videos"(
+    id UUID PRIMARY KEY,
+    av1 BYTEA,
+    vp9 BYTEA
+);
