@@ -6,6 +6,7 @@ import { HTTPRouter, PathUtil } from "core";
 import { IMAGE_HTTP_HANDLER } from "./api/image";
 import { HTTPConnection } from "core/src";
 import { VIDEO_HTTP_HANDLER } from "./api/video";
+import { VIDEO_ENCODE_HTTP_HANDLER } from "./api/video-encode";
 
 /** Initializes configuation values in node.js about .env files. */
 config();
@@ -36,7 +37,7 @@ http.createServer((request, response) => {
 
     const ROUTER = new HTTPRouter("", undefined, [
         new HTTPRouter("image", IMAGE_HTTP_HANDLER),
-        new HTTPRouter("video", VIDEO_HTTP_HANDLER)
+        new HTTPRouter("video", VIDEO_HTTP_HANDLER, [new HTTPRouter("encode", VIDEO_ENCODE_HTTP_HANDLER)])
     ]);
 
     ROUTER.delegate(

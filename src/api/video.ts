@@ -58,6 +58,7 @@ export const VIDEO_HTTP_HANDLER = new HTTPHandler({
             av1.on("start", () => {encode.av1.status = VideoEncodeStatus.START; setState()});
             av1.on("end",   () => {encode.av1.status = VideoEncodeStatus.FINISHED; setState()});
             av1.on("progress", (progress) => {
+                encode.av1.status = VideoEncodeStatus.PROGRESS;
                 encode.av1.progressPercent = (progress.percent ?? 0) / 100; // 0 ~ 1
                 setState();
             });
@@ -68,11 +69,12 @@ export const VIDEO_HTTP_HANDLER = new HTTPHandler({
             vp9.on("start", () => {encode.vp9.status = VideoEncodeStatus.START; setState()});
             vp9.on("end",   () => {encode.vp9.status = VideoEncodeStatus.FINISHED; setState()});
             vp9.on("progress", (progress) => {
+                encode.vp9.status = VideoEncodeStatus.PROGRESS;
                 encode.vp9.progressPercent = (progress.percent ?? 0) / 100; // 0 ~ 1
                 setState();
             });
             vp9.run();
-        })
+        });
 
         response.writeHead(200);
         response.end(uuid);
