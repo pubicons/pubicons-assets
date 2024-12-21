@@ -34,19 +34,21 @@ export const VIDEO_HTTP_HANDLER = new HTTPHandler({
             vp9: {status: VideoEncodeStatus.READY}
         }));
 
-        // AV1 output (mkv)
-        const av1 = ffmpeg();
-        av1.input(temp);
-        av1.inputFormat("mp4");
-        av1.output(`db/videos/${uuid}-av1.mkv`);
-        av1.videoCodec("libaom-av1");
+        // AV1 output (webm)
+        const av1 = ffmpeg()
+            .input(temp)
+            .inputFormat("mp4")
+            .output(`db/videos/${uuid}-av1.webm`)
+            .videoCodec("libsvtav1")
+            .addOptions(["-crf 30", "-preset 2"]);
 
-        // VP9 output (avi)
-        const vp9 = ffmpeg();
-        vp9.input(temp);
-        vp9.inputFormat("mp4");
-        vp9.output(`db/videos/${uuid}-vp9.avi`);
-        vp9.videoCodec("libx264");
+        // VP9 output (webm)
+        const vp9 = ffmpeg()
+            .input(temp)
+            .inputFormat("mp4")
+            .output(`db/videos/${uuid}-vp9.webm`)
+            .videoCodec("libvpx-vp9")
+            .addOptions(["-crf 30", "-speed 4"]);
 
         const setState = () => {
             REDIS_CLIENT.hSet("VideoProcessing", uuid, JSON.stringify(encode));
