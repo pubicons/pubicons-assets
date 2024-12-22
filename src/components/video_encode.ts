@@ -19,6 +19,12 @@ export interface VideoEncodeData {
     vp9: VideoEncodeResolutionQueues
 }
 
+export interface VideoEncodeCodec {
+    name: "av1" | "vp9";
+    codec: string;
+    options: string[]
+}
+
 /** The video processing status about ffmpeg. */
 export enum VideoEncodeStatus {
     READY = "ready",
@@ -52,102 +58,97 @@ export class VideoEncode {
             aspectRatio: number
         }
     ) {
-        // Make directory for saving temp video files.
-        fs.mkdirSync("db/videos/origin", {recursive: true});
-        fs.mkdirSync(`db/videos/queue/${uuid}`, {recursive: true});
-
         const inputPath = `db/videos/origin/${uuid}.mp4`;
         const resolution = size.resolution;
         const aspectRatio = size.aspectRatio;
 
-        // AV1 output (webm)
-        const av1 = ffmpeg()
-            .input(inputPath)
-            .inputFormat("mp4")
-            .output(`db/videos/queue/${uuid}/${resolution}-av1.webm`)
-            .videoCodec("libsvtav1")
-            .addOptions(["-crf 35", "-preset 6"]);
+        // The required directory settings.
+        fs.mkdirSync("db/videos/origin", { recursive: true });
+        fs.mkdirSync(`db/videos/queue/${uuid}`, { recursive: true });
 
-        // VP9 output (webm)
-        const vp9 = ffmpeg()
-            .input(inputPath)
-            .inputFormat("mp4")
-            .output(`db/videos/queue/${uuid}/${resolution}-vp9.webm`)
-            .videoCodec("libvpx-vp9")
-            .addOptions(["-crf 35", "-speed 4"]);
+        // The output video resolution pixels settings.
+        const sizePixels = this.pixelsOf(size.resolution, aspectRatio);
 
-        let sizePixels: string = "";
-        switch (size.resolution) {
-            case VideoResolution._144p: sizePixels = `256x${256 * aspectRatio}`; break;
-            case VideoResolution._240p: sizePixels = `426x${426 * aspectRatio}`; break;
-            case VideoResolution._480p: sizePixels = `854x${854 * aspectRatio}`; break;
-            case VideoResolution._720p: sizePixels = `1280x${1280 * aspectRatio}`; break;
-            case VideoResolution._1080p: sizePixels = `1920x${1920 * aspectRatio}`; break;
-            case VideoResolution._1440p: sizePixels = `2560x${2560 * aspectRatio}`; break;
-            case VideoResolution._2160p: sizePixels = `3840x${1280 * aspectRatio}`; break;
+        // The video codec list to be processed.
+        const codecs: VideoEncodeCodec[] = [];
+        const av1Status = data.av1[resolution]?.status;
+        const vp9Status = data.vp9[resolution]?.status;
+
+        // About AV1
+        if (av1Status != VideoEncodeStatus.FINISHED) {
+            codecs.push({name: "av1", codec: "libsvtav1", options: ["-crf 35", "-preset 6"]});
         }
 
-        // The video resolution settings about the output results.
-        av1.setSize(sizePixels);
-        vp9.setSize(sizePixels);
+        // About VP9
+        if (vp9Status != VideoEncodeStatus.FINISHED) {
+            codecs.push({name: "vp9", codec: "libvpx-vp9", options: ["-crf 35", "-speed 4"]});
+        }
+
+        codecs.forEach(({name, codec, options}) => {
+            this.processCodec(uuid, data, inputPath, resolution, sizePixels, name, codec, options);
+        });
+    }
+
+    static pixelsOf(resolution: VideoResolution, aspectRatio: number): string {
+        switch (resolution) {
+            case VideoResolution._144p: return `256x${Math.round(256 * aspectRatio)}`;
+            case VideoResolution._240p: return `426x${Math.round(426 * aspectRatio)}`;
+            case VideoResolution._480p: return `854x${Math.round(854 * aspectRatio)}`;
+            case VideoResolution._720p: return `1280x${Math.round(1280 * aspectRatio)}`;
+            case VideoResolution._1080p: return `1920x${Math.round(1920 * aspectRatio)}`;
+            case VideoResolution._1440p: return `2560x${Math.round(2560 * aspectRatio)}`;
+            case VideoResolution._2160p: return `3840x${Math.round(3840 * aspectRatio)}`;
+            default: throw new Error("Unsupported resolution");
+        }
+    }
+
+    static processCodec(
+        uuid: string,
+        data: VideoEncodeData,
+        inputPath: string,
+        resolution: VideoResolution,
+        sizePixels: string,
+        codecName: VideoEncodeCodec["name"],
+        codec: string,
+        options: string[]
+    ) {
+        const outputPath = `db/videos/queue/${uuid}/${resolution}-${codecName}.webm`;
+        const ffmpegCommand = ffmpeg()
+            .input(inputPath)
+            .inputFormat("mp4")
+            .output(outputPath)
+            .videoCodec(codec)
+            .addOptions(options)
+            .setSize(sizePixels);
 
         const setState = () => {
             REDIS_CLIENT.hSet("VideoProcessing", uuid, JSON.stringify(data));
-        }
+        };
 
-        av1.ffprobe((error, video) => {
-            av1.on("start", () => {
-                if (data.av1[resolution]) {
-                    data.av1[resolution].status = VideoEncodeStatus.START;
-                    setState();
-                }
-            });
-
-            av1.on("end", () => {
-                if (data.av1[resolution]) {
-                    data.av1[resolution].status = VideoEncodeStatus.FINISHED;
-                    delete data.av1[resolution].progressPercent;
-                    setState();
-                }
-            });
-
-            av1.on("progress", (progress) => {
-                if (data.av1[resolution]) {
-                    data.av1[resolution].status = VideoEncodeStatus.PROGRESS;
-                    data.av1[resolution].progressPercent = (progress.percent ?? 0) / 100; // 0 ~ 1
-                    setState();
-                }
-            });
-
-            av1.run();
+        ffmpegCommand.on("start", () => {
+            if (data[codecName][resolution]) {
+                data[codecName][resolution].status = VideoEncodeStatus.START;
+                setState();
+            }
         });
 
-        vp9.ffprobe((error, video) => {
-            vp9.on("start", () => {
-                if (data.vp9[resolution]) {
-                    data.vp9[resolution].status = VideoEncodeStatus.START;
-                    setState();
-                }
-            });
-
-            vp9.on("end", () => {
-                if (data.vp9[resolution]) {
-                    data.vp9[resolution].status = VideoEncodeStatus.FINISHED;
-                    delete data.vp9[resolution].progressPercent;
-                    setState();
-                }
-            });
-
-            vp9.on("progress", (progress) => {
-                if (data.vp9[resolution]) {
-                    data.vp9[resolution].status = VideoEncodeStatus.PROGRESS;
-                    data.vp9[resolution].progressPercent = (progress.percent ?? 0) / 100; // 0 ~ 1
-                    setState();
-                }
-            });
-
-            vp9.run();
+        ffmpegCommand.on("end", () => {
+            if (data[codecName][resolution]) {
+                data[codecName][resolution].status = VideoEncodeStatus.FINISHED;
+                delete data[codecName][resolution].progressPercent;
+                setState();
+            }
         });
+
+        ffmpegCommand.on("progress", (progress) => {
+            if (data[codecName][resolution]) {
+                data[codecName][resolution].status = VideoEncodeStatus.PROGRESS;
+                data[codecName][resolution].progressPercent = (progress.percent ?? 0) / 100;
+                setState();
+            }
+        });
+
+        ffmpegCommand.run();
     }
 
     static perform(uuid: string, data?: VideoEncodeData) {
@@ -167,47 +168,23 @@ export class VideoEncode {
             // Check the resolution of a given video by referring to stream.
             if (videoStream && videoStream.width && videoStream.height) {
                 const aspectRatio = videoStream.height / videoStream.width;
+                const resolutions: [VideoResolution, number][] = [
+                    [VideoResolution._144p, 256],
+                    [VideoResolution._240p, 426],
+                    [VideoResolution._480p, 854],
+                    [VideoResolution._720p, 1280],
+                    [VideoResolution._1080p, 1920],
+                    [VideoResolution._1440p, 2560],
+                    [VideoResolution._2160p, 3840],
+                ];
 
-                if (videoStream.width >= 256) {
-                    encode.av1["144p"] = {status: VideoEncodeStatus.READY};
-                    encode.vp9["144p"] = {status: VideoEncodeStatus.READY};
-                    this.encodeVideo(uuid, encode, {resolution: VideoResolution._144p, aspectRatio});
-                }
-
-                if (videoStream.width >= 426) {
-                    encode.av1["240p"] = {status: VideoEncodeStatus.READY};
-                    encode.vp9["240p"] = {status: VideoEncodeStatus.READY};
-                    this.encodeVideo(uuid, encode, {resolution: VideoResolution._240p, aspectRatio});
-                }
-
-                if (videoStream.width >= 854) {
-                    encode.av1["480p"] = {status: VideoEncodeStatus.READY};
-                    encode.vp9["480p"] = {status: VideoEncodeStatus.READY};
-                    this.encodeVideo(uuid, encode, {resolution: VideoResolution._480p, aspectRatio});
-                }
-
-                if (videoStream.width >= 1280) {
-                    encode.av1["720p"] = {status: VideoEncodeStatus.READY};
-                    encode.vp9["720p"] = {status: VideoEncodeStatus.READY};
-                    this.encodeVideo(uuid, encode, {resolution: VideoResolution._720p, aspectRatio});
-                }
-
-                if (videoStream.width >= 1920) {
-                    encode.av1["1080p"] = {status: VideoEncodeStatus.READY};
-                    encode.vp9["1080p"] = {status: VideoEncodeStatus.READY};
-                    this.encodeVideo(uuid, encode, {resolution: VideoResolution._1080p, aspectRatio});
-                }
-
-                if (videoStream.width >= 2560) {
-                    encode.av1["1440p"] = {status: VideoEncodeStatus.READY};
-                    encode.vp9["1440p"] = {status: VideoEncodeStatus.READY};
-                    this.encodeVideo(uuid, encode, {resolution: VideoResolution._1440p, aspectRatio});
-                }
-
-                if (videoStream.width >= 3840) {
-                    encode.av1["2160p"] = {status: VideoEncodeStatus.READY};
-                    encode.vp9["2160p"] = {status: VideoEncodeStatus.READY};
-                    this.encodeVideo(uuid, encode, {resolution: VideoResolution._2160p, aspectRatio});
+                // Encoding by the resolutions(e.g. 144p ~ 2160p)
+                for (const [resolution, minWidth] of resolutions) {
+                    if (videoStream.width >= minWidth) {
+                        encode.av1[resolution] ??= {status: VideoEncodeStatus.READY};
+                        encode.vp9[resolution] ??= {status: VideoEncodeStatus.READY};
+                        this.encodeVideo(uuid, encode, {resolution, aspectRatio});
+                    }
                 }
             }
         });
