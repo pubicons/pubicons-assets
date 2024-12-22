@@ -36,6 +36,14 @@ export const IMAGE_HTTP_HANDLER = new HTTPHandler({
         let avif = sharp(buffer).toFormat("avif");
         let webp = sharp(buffer).toFormat("webp");
         const uuid = UUID.v4();
+        const meta = await avif.metadata();
+
+        response.writeHead(200, {"content-type": "application/json"});
+        response.end(JSON.stringify({
+            uuid,
+            width: width ?? meta.width,
+            height: height ?? meta.height
+        }));
 
         // Settings resizing a given image to the given size options.
         const resizeOptions: sharp.ResizeOptions = {fit: fit ?? "cover"};
@@ -46,14 +54,11 @@ export const IMAGE_HTTP_HANDLER = new HTTPHandler({
             webp = webp.resize(resizeOptions);
         }
 
-        await PG_CLIENT.query(`INSERT INTO "Images"("id", "avif", "webp") VALUES($1, $2, $3)`, [
+        PG_CLIENT.query(`INSERT INTO "Images"("id", "avif", "webp") VALUES($1, $2, $3)`, [
             uuid,
             await avif.toBuffer(),
             await webp.toBuffer()
         ]);
-
-        response.writeHead(200);
-        response.end(uuid);
     },
     get: async (request, response, _) => {
         const params = PathUtil.toUrl(request.url!).searchParams;

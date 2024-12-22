@@ -1,7 +1,7 @@
 import fs from "fs";
 import ffmpeg from "fluent-ffmpeg";
-import { REDIS_CLIENT } from "..";
 import path from "path";
+import { REDIS_CLIENT } from "..";
 
 export type VideoEncodeQueueStatus = {status: VideoEncodeStatus, progressPercent?: number};
 export type VideoEncodeResolutionQueues = {
@@ -15,12 +15,14 @@ export type VideoEncodeResolutionQueues = {
 }
 
 export interface VideoEncodeData {
-    av1: VideoEncodeResolutionQueues,
-    vp9: VideoEncodeResolutionQueues
+    av1: VideoEncodeResolutionQueues;
+    vp9: VideoEncodeResolutionQueues;
+    h264: VideoEncodeResolutionQueues;
 }
 
 export interface VideoEncodeCodec {
-    name: "av1" | "vp9";
+    name: "av1" | "vp9" | "h264";
+    extension: "webm" | "mkv" | "mp4";
     codec: string;
     options: string[]
 }
@@ -76,16 +78,36 @@ export class VideoEncode {
 
         // About AV1
         if (av1Status != VideoEncodeStatus.FINISHED) {
-            codecs.push({name: "av1", codec: "libsvtav1", options: ["-crf 35", "-preset 6"]});
+            codecs.push({
+                name: "av1",
+                extension: "webm",
+                codec: "libsvtav1",
+                options: ["-crf 35", "-preset 6"]
+            });
         }
 
         // About VP9
         if (vp9Status != VideoEncodeStatus.FINISHED) {
-            codecs.push({name: "vp9", codec: "libvpx-vp9", options: ["-crf 35", "-speed 4"]});
+            codecs.push({
+                name: "vp9",
+                extension: "webm",
+                codec: "libvpx-vp9",
+                options: ["-crf 35", "-speed 4"]
+            });
         }
 
-        codecs.forEach(({name, codec, options}) => {
-            this.processCodec(uuid, data, inputPath, resolution, sizePixels, name, codec, options);
+        // About H.264
+        if (vp9Status != VideoEncodeStatus.FINISHED) {
+            codecs.push({
+                name: "h264",
+                extension: "mp4",
+                codec: "libx264",
+                options: ["-crf 28"]
+            });
+        }
+
+        codecs.forEach((codec: VideoEncodeCodec) => {
+            this.processCodec(uuid, data, inputPath, resolution, sizePixels, codec);
         });
     }
 
@@ -108,17 +130,16 @@ export class VideoEncode {
         inputPath: string,
         resolution: VideoResolution,
         sizePixels: string,
-        codecName: VideoEncodeCodec["name"],
-        codec: string,
-        options: string[]
+        codec: VideoEncodeCodec
     ) {
-        const outputPath = `db/videos/queue/${uuid}/${resolution}-${codecName}.webm`;
+        const codecName = codec.name;
+        const outputPath = `db/videos/queue/${uuid}/${resolution}-${codecName}.${codec.extension}`;
         const ffmpegCommand = ffmpeg()
             .input(inputPath)
             .inputFormat("mp4")
             .output(outputPath)
-            .videoCodec(codec)
-            .addOptions(options)
+            .videoCodec(codec.codec)
+            .addOptions(codec.options)
             .setSize(sizePixels);
 
         const setState = () => {
@@ -160,10 +181,11 @@ export class VideoEncode {
         REDIS_CLIENT.hSet("VideoProcessing", uuid, JSON.stringify(encode ??= {
             av1: {},
             vp9: {},
+            h264: {},
         }));
 
         ffmpeg().input(`db/videos/origin/${uuid}.mp4`).ffprobe((error, video) => {
-            const videoStream = video.streams.find(stream => stream.codec_type === 'video');
+            const videoStream = video.streams.find(stream => stream.codec_type === "video");
 
             // Check the resolution of a given video by referring to stream.
             if (videoStream && videoStream.width && videoStream.height) {
@@ -183,6 +205,7 @@ export class VideoEncode {
                     if (videoStream.width >= minWidth) {
                         encode.av1[resolution] ??= {status: VideoEncodeStatus.READY};
                         encode.vp9[resolution] ??= {status: VideoEncodeStatus.READY};
+                        encode.h264[resolution] ??= {status: VideoEncodeStatus.READY};
                         this.encodeVideo(uuid, encode, {resolution, aspectRatio});
                     }
                 }
