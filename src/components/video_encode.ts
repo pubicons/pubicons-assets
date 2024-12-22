@@ -75,6 +75,7 @@ export class VideoEncode {
         const codecs: VideoEncodeCodec[] = [];
         const av1Status = data.av1[resolution]?.status;
         const vp9Status = data.vp9[resolution]?.status;
+        const h264Status = data.h264[resolution]?.status;
 
         // About AV1
         if (av1Status != VideoEncodeStatus.FINISHED) {
@@ -97,7 +98,7 @@ export class VideoEncode {
         }
 
         // About H.264
-        if (vp9Status != VideoEncodeStatus.FINISHED) {
+        if (h264Status != VideoEncodeStatus.FINISHED) {
             codecs.push({
                 name: "h264",
                 extension: "mp4",
