@@ -102,7 +102,7 @@ export class VideoEncode {
                 name: "h264",
                 extension: "mp4",
                 codec: "libx264",
-                options: ["-crf 28", "-spped 4"]
+                options: ["-crf 28", "-speed 4"]
             });
         }
 
