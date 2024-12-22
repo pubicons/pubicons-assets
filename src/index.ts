@@ -7,6 +7,7 @@ import { IMAGE_HTTP_HANDLER } from "./api/image";
 import { HTTPConnection } from "core/src";
 import { VIDEO_HTTP_HANDLER } from "./api/video";
 import { VIDEO_ENCODE_HTTP_HANDLER } from "./api/video-encode";
+import { VideoEncode } from "./components/video_encode";
 
 /** Initializes configuation values in node.js about .env files. */
 config();
@@ -48,5 +49,12 @@ http.createServer((request, response) => {
 })
 .listen(8081, () => {
     PG_CLIENT.connect();
-    REDIS_CLIENT.connect();
+    REDIS_CLIENT.connect().then(async () => {
+        const videoObj = await REDIS_CLIENT.hGetAll("VideoProcessing");
+
+        // When redis is connected, check if there are any videos that need to be processed.
+        for (const [key, data] of Object.entries(videoObj)) {
+            VideoEncode.perform(key, JSON.parse(data));
+        }
+    });
 });
