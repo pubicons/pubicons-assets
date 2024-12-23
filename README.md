@@ -11,6 +11,21 @@ POSTGRES_PASSWORD=...
 
 REDIS_PORT=6379
 REDIS_PASSWORD=...{0}
+
+# This property is not required.
+AV1_ENCODER=libsvtav1
+
+# This property is not required.
+# Using CPU = libx265
+# Radeon GPU = hevc_amf
+# NVIDIA GPU = hevc_nvenc
+H265_ENCODER=libx265
+
+# This property is not required.
+# Using CPU = libx264
+# Radeon GPU = h264_amf
+# NVIDIA GPU = h264_nvenc
+H264_ENCODER=libx264
 ```
 
 And then, create a `redis.conf` file in the server/ folder and write the code according to the format below.
