@@ -9,5 +9,6 @@ CREATE TABLE "Images"(
 CREATE TABLE "Videos"(
     id UUID PRIMARY KEY,
     av1 BYTEA,
-    vp9 BYTEA
+    h265 BYTEA,
+    h264 BYTEA
 );

@@ -16,12 +16,12 @@ export type VideoEncodeResolutionQueues = {
 
 export interface VideoEncodeData {
     av1: VideoEncodeResolutionQueues;
-    vp9: VideoEncodeResolutionQueues;
+    h265: VideoEncodeResolutionQueues;
     h264: VideoEncodeResolutionQueues;
 }
 
 export interface VideoEncodeCodec {
-    name: "av1" | "vp9" | "h264";
+    name: keyof VideoEncodeData;
     extension: "webm" | "mkv" | "mp4";
     codec: string;
     options: string[]
@@ -74,7 +74,7 @@ export class VideoEncode {
         // The video codec list to be processed.
         const codecs: VideoEncodeCodec[] = [];
         const av1Status = data.av1[resolution]?.status;
-        const vp9Status = data.vp9[resolution]?.status;
+        const h265Status = data.h265[resolution]?.status;
         const h264Status = data.h264[resolution]?.status;
 
         // About AV1
@@ -82,17 +82,17 @@ export class VideoEncode {
             codecs.push({
                 name: "av1",
                 extension: "webm",
-                codec: "libsvtav1",
+                codec: process.env.AV1_ENCODER ?? "libsvtav1",
                 options: ["-crf 35", "-preset 6"]
             });
         }
 
-        // About VP9
-        if (vp9Status != VideoEncodeStatus.FINISHED) {
+        // About H.265
+        if (h265Status != VideoEncodeStatus.FINISHED) {
             codecs.push({
-                name: "vp9",
-                extension: "webm",
-                codec: "libvpx-vp9",
+                name: "h265",
+                extension: "mp4",
+                codec: process.env.H265_ENCODER ?? "libx265",
                 options: ["-crf 35", "-speed 4"]
             });
         }
@@ -102,7 +102,7 @@ export class VideoEncode {
             codecs.push({
                 name: "h264",
                 extension: "mp4",
-                codec: "libx264",
+                codec: process.env.H264_ENCODER ?? "libx264",
                 options: ["-crf 28", "-speed 4"]
             });
         }
@@ -181,7 +181,7 @@ export class VideoEncode {
         let encode: VideoEncodeData | undefined = data;
         REDIS_CLIENT.hSet("VideoProcessing", uuid, JSON.stringify(encode ??= {
             av1: {},
-            vp9: {},
+            h265: {},
             h264: {},
         }));
 
@@ -205,7 +205,7 @@ export class VideoEncode {
                 for (const [resolution, minWidth] of resolutions) {
                     if (videoStream.width >= minWidth) {
                         encode.av1[resolution] ??= {status: VideoEncodeStatus.READY};
-                        encode.vp9[resolution] ??= {status: VideoEncodeStatus.READY};
+                        encode.h265[resolution] ??= {status: VideoEncodeStatus.READY};
                         encode.h264[resolution] ??= {status: VideoEncodeStatus.READY};
                         this.encodeVideo(uuid, encode, {resolution, aspectRatio});
                     }
