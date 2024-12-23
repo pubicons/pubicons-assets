@@ -42,7 +42,7 @@ Must download the external dependency `FFmpeg`. And extract the downloaded archi
 | Type | URL |
 | ---- | ------ |
 | Link 1 | https://www.ffmpeg.org |
-| Link 2 | https://github.com/BtbN/FFmpeg-Builds |
+| Link 2 | https://github.com/BtbN/FFmpeg-Builds [(Latest)](https://github.com/BtbN/FFmpeg-Builds/releases/tag/latest) |
 
 # Get Started
 Enter the following commands in turn in the terminal.
