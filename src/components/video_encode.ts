@@ -93,7 +93,7 @@ export class VideoEncode {
                 name: "h265",
                 extension: "mp4",
                 codec: process.env.H265_ENCODER ?? "libx265",
-                options: ["-crf 35", "-speed 4"]
+                options: ["-crf 35"]
             });
         }
 
@@ -103,7 +103,7 @@ export class VideoEncode {
                 name: "h264",
                 extension: "mp4",
                 codec: process.env.H264_ENCODER ?? "libx264",
-                options: ["-crf 28", "-speed 4"]
+                options: ["-crf 28"]
             });
         }
 
@@ -114,13 +114,13 @@ export class VideoEncode {
 
     static pixelsOf(resolution: VideoResolution, aspectRatio: number): string {
         switch (resolution) {
-            case VideoResolution._144p: return `256x${Math.round(256 * aspectRatio)}`;
-            case VideoResolution._240p: return `426x${Math.round(426 * aspectRatio)}`;
-            case VideoResolution._480p: return `854x${Math.round(854 * aspectRatio)}`;
-            case VideoResolution._720p: return `1280x${Math.round(1280 * aspectRatio)}`;
-            case VideoResolution._1080p: return `1920x${Math.round(1920 * aspectRatio)}`;
-            case VideoResolution._1440p: return `2560x${Math.round(2560 * aspectRatio)}`;
-            case VideoResolution._2160p: return `3840x${Math.round(3840 * aspectRatio)}`;
+            case VideoResolution._144p: return `256x${Math.max(128, Math.round(256 * aspectRatio))}`;
+            case VideoResolution._240p: return `426x${Math.max(128, Math.round(426 * aspectRatio))}`;
+            case VideoResolution._480p: return `854x${Math.max(128, Math.round(854 * aspectRatio))}`;
+            case VideoResolution._720p: return `1280x${Math.max(128, Math.round(1280 * aspectRatio))}`;
+            case VideoResolution._1080p: return `1920x${Math.max(128, Math.round(1920 * aspectRatio))}`;
+            case VideoResolution._1440p: return `2560x${Math.max(128, Math.round(2560 * aspectRatio))}`;
+            case VideoResolution._2160p: return `3840x${Math.max(128, Math.round(3840 * aspectRatio))}`;
             default: throw new Error("Unsupported resolution");
         }
     }
@@ -139,9 +139,9 @@ export class VideoEncode {
             .input(inputPath)
             .inputFormat("mp4")
             .output(outputPath)
+            .setSize(sizePixels)
             .videoCodec(codec.codec)
             .addOptions(codec.options)
-            .setSize(sizePixels);
 
         const setState = () => {
             REDIS_CLIENT.hSet("VideoProcessing", uuid, JSON.stringify(data));
