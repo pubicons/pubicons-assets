@@ -1,11 +1,18 @@
 import sharp from "sharp";
 import { PG_CLIENT } from "..";
-import { HTTPHandler, PathUtil } from "core";
+import { HTTPHandler, HTTPUtil, PathUtil } from "core";
 import { UUID } from "core/src";
 import { APIException } from "core/src/api";
+import { METHODS, ServerResponse } from "http";
+
+interface ImageConstraint {
+    maxWidth?: number;
+    maxHeight?: number;
+}
 
 enum ImageException {
-    INVALID_UUID = "invalid_uuid"
+    INVALID_UUID = "invalid_uuid",
+    INVALID_SIZE = "invalid_size"
 }
 
 export const IMAGE_HTTP_HANDLER = new HTTPHandler({
@@ -14,6 +21,8 @@ export const IMAGE_HTTP_HANDLER = new HTTPHandler({
         const fit = params.get("fit") as keyof sharp.FitEnum;
         const width = params.get("width");
         const height = params.get("height");
+        const constarint = HTTPUtil.parseRequest<ImageConstraint>(params.get("constraint") ?? "{}", response);
+        if (!constarint) return;
 
         if (fit != null
          && fit != "contain"
@@ -27,9 +36,19 @@ export const IMAGE_HTTP_HANDLER = new HTTPHandler({
         }
 
         // The validation about the resize options for a given image.
-        if (width && isNaN(parseInt(width)) || height && isNaN(parseInt(height))) {
+        if (width  && isNaN(parseInt(width))
+         || height && isNaN(parseInt(height))) {
             response.writeHead(400);
             response.end(APIException.INVALID_REQUEST_FORMAT);
+            return;
+        }
+
+        // When the explicitly specified size is larger than
+        // the maximum size defined by the given constraint.
+        if (width  && parseInt(width)  > (constarint.maxWidth  ?? Infinity)
+         || height && parseInt(height) > (constarint.maxHeight ?? Infinity)) {
+            response.writeHead(400);
+            response.end(ImageException.INVALID_SIZE);
             return;
         }
 
@@ -37,19 +56,22 @@ export const IMAGE_HTTP_HANDLER = new HTTPHandler({
         let webp = sharp(buffer).toFormat("webp");
         const uuid = UUID.v4();
         const meta = await avif.metadata();
+        const pWidth = width ? parseInt(width) : meta.width!;
+        const pHeight = height ? parseInt(height) : meta.height!;
+        const result = {
+            uuid: uuid,
+            width: Math.min(pWidth, constarint.maxWidth ?? Infinity),
+            height: Math.min(pHeight, constarint.maxHeight ?? Infinity)
+        }
 
         response.writeHead(200, {"content-type": "application/json"});
-        response.end(JSON.stringify({
-            uuid,
-            width: width ?? meta.width,
-            height: height ?? meta.height
-        }));
+        response.end(JSON.stringify(result));
 
         // Settings resizing a given image to the given size options.
         const resizeOptions: sharp.ResizeOptions = {fit: fit ?? "cover"};
-        if (width ) resizeOptions.width  = parseInt(width);
-        if (height) resizeOptions.height = parseInt(height);
-        if (width || height) {
+        resizeOptions.width = result.width;
+        resizeOptions.height = result.height;
+        if (width || height || constarint.maxWidth || constarint.maxHeight) {
             avif = avif.resize(resizeOptions);
             webp = webp.resize(resizeOptions);
         }
