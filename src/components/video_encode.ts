@@ -31,6 +31,7 @@ export interface VideoEncodeCodec {
 export enum VideoEncodeStatus {
     READY = "ready",
     START = "start",
+    ERROR = "error",
     PROGRESS = "progress",
     FINISHED = "finished"
 }
@@ -55,61 +56,24 @@ export class VideoEncode {
     static encodeVideo(
         uuid: string,
         data: VideoEncodeData,
-        size: {
+        codec: VideoEncodeCodec,
+        metaData: {
             resolution: VideoResolution,
             aspectRatio: number
         }
-    ) {
+    ): Promise<void> {
         const inputPath = `db/videos/origin/${uuid}.mp4`;
-        const resolution = size.resolution;
-        const aspectRatio = size.aspectRatio;
+        const resolution = metaData.resolution;
+        const aspectRatio = metaData.aspectRatio;
 
         // The required directory settings.
         fs.mkdirSync("db/videos/origin", { recursive: true });
         fs.mkdirSync(`db/videos/queue/${uuid}`, { recursive: true });
 
         // The output video resolution pixels settings.
-        const sizePixels = this.pixelsOf(size.resolution, aspectRatio);
+        const sizePixels = this.pixelsOf(metaData.resolution, aspectRatio);
 
-        // The video codec list to be processed.
-        const codecs: VideoEncodeCodec[] = [];
-        const av1Status = data.av1[resolution]?.status;
-        const h265Status = data.h265[resolution]?.status;
-        const h264Status = data.h264[resolution]?.status;
-
-        // About AV1
-        if (av1Status != VideoEncodeStatus.FINISHED) {
-            codecs.push({
-                name: "av1",
-                extension: "webm",
-                codec: process.env.AV1_ENCODER ?? "libsvtav1",
-                options: ["-crf 35", "-preset 6"]
-            });
-        }
-
-        // About H.265
-        if (h265Status != VideoEncodeStatus.FINISHED) {
-            codecs.push({
-                name: "h265",
-                extension: "mp4",
-                codec: process.env.H265_ENCODER ?? "libx265",
-                options: ["-crf 35"]
-            });
-        }
-
-        // About H.264
-        if (h264Status != VideoEncodeStatus.FINISHED) {
-            codecs.push({
-                name: "h264",
-                extension: "mp4",
-                codec: process.env.H264_ENCODER ?? "libx264",
-                options: ["-crf 28"]
-            });
-        }
-
-        codecs.forEach((codec: VideoEncodeCodec) => {
-            this.processCodec(uuid, data, inputPath, resolution, sizePixels, codec);
-        });
+        return this.processCodec(uuid, data, inputPath, resolution, sizePixels, codec);
     }
 
     static pixelsOf(resolution: VideoResolution, aspectRatio: number): string {
@@ -132,45 +96,79 @@ export class VideoEncode {
         resolution: VideoResolution,
         sizePixels: string,
         codec: VideoEncodeCodec
-    ) {
-        const codecName = codec.name;
-        const outputPath = `db/videos/queue/${uuid}/${resolution}-${codecName}.${codec.extension}`;
-        const ffmpegCommand = ffmpeg()
-            .input(inputPath)
-            .inputFormat("mp4")
-            .output(outputPath)
-            .setSize(sizePixels)
-            .videoCodec(codec.codec)
-            .addOptions(codec.options)
-
-        const setState = () => {
-            REDIS_CLIENT.hSet("VideoProcessing", uuid, JSON.stringify(data));
-        };
-
-        ffmpegCommand.on("start", () => {
-            if (data[codecName][resolution]) {
-                data[codecName][resolution].status = VideoEncodeStatus.START;
-                setState();
-            }
+    ): Promise<void> {
+        return new Promise((resolve, reject) => {
+            const codecName = codec.name;
+            const outputPath = `db/videos/queue/${uuid}/${resolution}-${codecName}.${codec.extension}`;
+            const ffmpegCommand = ffmpeg()
+                .input(inputPath)
+                .inputFormat("mp4")
+                .output(outputPath)
+                .setSize(sizePixels)
+                .videoCodec(codec.codec)
+                .addOptions(codec.options);
+    
+            const setState = () => {
+                REDIS_CLIENT.hSet("VideoProcessing", uuid, JSON.stringify(data));
+            };
+    
+            ffmpegCommand.on("start", () => {
+                if (data[codecName][resolution]) {
+                    data[codecName][resolution].status = VideoEncodeStatus.START;
+                    setState();
+                }
+            });
+    
+            ffmpegCommand.on("end", () => {
+                if (data[codecName][resolution]) {
+                    data[codecName][resolution].status = VideoEncodeStatus.FINISHED;
+                    delete data[codecName][resolution].progressPercent;
+                    setState();
+                }
+                resolve();
+            });
+    
+            ffmpegCommand.on("progress", (progress) => {
+                if (data[codecName][resolution]) {
+                    data[codecName][resolution].status = VideoEncodeStatus.PROGRESS;
+                    data[codecName][resolution].progressPercent = (progress.percent ?? 0) / 100;
+                    setState();
+                }
+            });
+    
+            ffmpegCommand.on("error", (error) => {
+                if (data[codecName][resolution]) {
+                    data[codecName][resolution].status = VideoEncodeStatus.ERROR;
+                    setState();
+                }
+                reject(error);
+            });
+    
+            ffmpegCommand.run();
         });
+    }
 
-        ffmpegCommand.on("end", () => {
-            if (data[codecName][resolution]) {
-                data[codecName][resolution].status = VideoEncodeStatus.FINISHED;
-                delete data[codecName][resolution].progressPercent;
-                setState();
+    static codecInstanceOf(name: keyof VideoEncodeData): VideoEncodeCodec {
+        switch (name) {
+            case "av1": return {
+                name: "av1",
+                extension: "webm",
+                codec: process.env.AV1_ENCODER ?? "libsvtav1",
+                options: ["-crf 35", "-preset 6"]
+            };
+            case "h265": return {
+                name: "h265",
+                extension: "mp4",
+                codec: process.env.H265_ENCODER ?? "libx265",
+                options: ["-crf 35"]
+            };
+            case "h264": return {
+                name: "h264",
+                extension: "mp4",
+                codec: process.env.H264_ENCODER ?? "libx264",
+                options: ["-crf 28"]
             }
-        });
-
-        ffmpegCommand.on("progress", (progress) => {
-            if (data[codecName][resolution]) {
-                data[codecName][resolution].status = VideoEncodeStatus.PROGRESS;
-                data[codecName][resolution].progressPercent = (progress.percent ?? 0) / 100;
-                setState();
-            }
-        });
-
-        ffmpegCommand.run();
+        }
     }
 
     static perform(uuid: string, data?: VideoEncodeData) {
@@ -185,7 +183,7 @@ export class VideoEncode {
             h264: {},
         }));
 
-        ffmpeg().input(`db/videos/origin/${uuid}.mp4`).ffprobe((error, video) => {
+        ffmpeg().input(`db/videos/origin/${uuid}.mp4`).ffprobe((_, video) => {
             const videoStream = video.streams.find(stream => stream.codec_type === "video");
 
             // Check the resolution of a given video by referring to stream.
@@ -207,8 +205,25 @@ export class VideoEncode {
                         encode.av1[resolution] ??= {status: VideoEncodeStatus.READY};
                         encode.h265[resolution] ??= {status: VideoEncodeStatus.READY};
                         encode.h264[resolution] ??= {status: VideoEncodeStatus.READY};
-                        this.encodeVideo(uuid, encode, {resolution, aspectRatio});
                     }
+                }
+
+                // Process video encoding sequentially by codec.
+                for (const [codecName, resolutions] of Object.entries(encode)) {
+                    const vCodec = this.codecInstanceOf(codecName as keyof VideoEncodeData);
+                    const queues = Object.entries(resolutions as VideoEncodeData)
+                        .filter(([_, data]) => data["status"] != VideoEncodeStatus.FINISHED)
+                        .map(([key]) => key);
+
+                    // Process video encoding sequentially by resolution as queue.
+                    (async () => {
+                        while (queues.length > 0) {
+                            const resolution = queues.shift() as VideoResolution | undefined;
+                            if (!resolution) return;
+    
+                            await this.encodeVideo(uuid, encode, vCodec, {resolution, aspectRatio});
+                        }
+                    })();
                 }
             }
         });

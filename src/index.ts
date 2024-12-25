@@ -41,11 +41,17 @@ http.createServer((request, response) => {
         new HTTPRouter("video", VIDEO_HTTP_HANDLER, [new HTTPRouter("encode", VIDEO_ENCODE_HTTP_HANDLER)])
     ]);
 
-    ROUTER.delegate(
-        new HTTPConnection(PathUtil.toList(request.url!),
-        request, // required
-        response // requried
-    ))
+    // Routes the URL path about /image, /video request.
+    try {
+        ROUTER.delegate(
+            new HTTPConnection(PathUtil.toList(request.url!),
+            request, // required
+            response // requried
+        ))
+    } catch (error) {
+        response.writeHead(500);
+        response.end();
+    }
 })
 .listen(8081, () => {
     PG_CLIENT.connect();
