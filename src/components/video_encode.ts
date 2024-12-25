@@ -20,10 +20,10 @@ export interface VideoEncodeData {
     h264: VideoEncodeResolutionQueues;
 }
 
-export interface VideoEncodeCodec {
-    name: keyof VideoEncodeData;
+export interface VideoEncodeSetting {
+    codecAlias: keyof VideoEncodeData;
     extension: "webm" | "mkv" | "mp4";
-    codec: string;
+    codecName: string;
     options: string[]
 }
 
@@ -47,6 +47,12 @@ export enum VideoResolution {
 }
 
 export class VideoEncode {
+    /**
+     * The closer the value is to 1, the greater the reduction
+     * in bitrate will be as the frame rate decreases.
+    */
+    static DECREASED_FACTOR = 0.75;
+
     static initialize(uuid: string, buffer: Buffer): string {
         const originPath = path.join("db/videos/origin", `${uuid}.mp4`);
         fs.writeFileSync(originPath, buffer);
@@ -56,13 +62,15 @@ export class VideoEncode {
     static encodeVideo(
         uuid: string,
         data: VideoEncodeData,
-        codec: VideoEncodeCodec,
+        setting: VideoEncodeSetting,
         metaData: {
-            resolution: VideoResolution,
-            aspectRatio: number
+            frameRate: number;
+            resolution: VideoResolution;
+            aspectRatio: number;
         }
     ): Promise<void> {
         const inputPath = `db/videos/origin/${uuid}.mp4`;
+        const frameRate = metaData.frameRate;
         const resolution = metaData.resolution;
         const aspectRatio = metaData.aspectRatio;
 
@@ -73,7 +81,7 @@ export class VideoEncode {
         // The output video resolution pixels settings.
         const sizePixels = this.pixelsOf(metaData.resolution, aspectRatio);
 
-        return this.processCodec(uuid, data, inputPath, resolution, sizePixels, codec);
+        return this.processCodec(uuid, data, inputPath, resolution, sizePixels, frameRate, setting);
     }
 
     static pixelsOf(resolution: VideoResolution, aspectRatio: number): string {
@@ -95,18 +103,21 @@ export class VideoEncode {
         inputPath: string,
         resolution: VideoResolution,
         sizePixels: string,
-        codec: VideoEncodeCodec
+        frameRate: number,
+        setting: VideoEncodeSetting
     ): Promise<void> {
         return new Promise((resolve, reject) => {
-            const codecName = codec.name;
-            const outputPath = `db/videos/queue/${uuid}/${resolution}-${codecName}.${codec.extension}`;
+            const bitrate = this.averageBitrateOf(resolution, frameRate);
+            const codecName = setting.codecAlias;
+            const outputPath = `db/videos/queue/${uuid}/${resolution}-${codecName}.${setting.extension}`;
             const ffmpegCommand = ffmpeg()
                 .input(inputPath)
                 .inputFormat("mp4")
                 .output(outputPath)
                 .setSize(sizePixels)
-                .videoCodec(codec.codec)
-                .addOptions(codec.options);
+                .videoCodec(setting.codecName)
+                .addOptions(setting.options)
+                .addOptions(`-b:v ${bitrate}`);
 
             const setState = () => {
                 REDIS_CLIENT.hSet("VideoProcessing", uuid, JSON.stringify(data));
@@ -148,27 +159,45 @@ export class VideoEncode {
         });
     }
 
-    static codecInstanceOf(name: keyof VideoEncodeData): VideoEncodeCodec {
+    static codecInstanceOf(name: keyof VideoEncodeData): VideoEncodeSetting {
         switch (name) {
             case "av1": return {
-                name: "av1",
+                codecAlias: "av1",
                 extension: "webm",
-                codec: process.env.AV1_ENCODER ?? "libsvtav1",
-                options: ["-crf 30", "-preset 6"]
+                codecName: process.env.AV1_ENCODER ?? "libsvtav1",
+                options: ["-preset 6"]
             };
             case "h265": return {
-                name: "h265",
+                codecAlias: "h265",
                 extension: "mp4",
-                codec: process.env.H265_ENCODER ?? "libx265",
-                options: ["-crf 30"]
+                codecName: process.env.H265_ENCODER ?? "libx265",
+                options: []
             };
             case "h264": return {
-                name: "h264",
+                codecAlias: "h264",
                 extension: "mp4",
-                codec: process.env.H264_ENCODER ?? "libx264",
-                options: ["-crf 30"]
+                codecName: process.env.H264_ENCODER ?? "libx264",
+                options: []
             }
         }
+    }
+
+    static averageBitrateOf(resolution: VideoResolution, frameRate: number) {
+        const bitrateMap = {
+            [VideoResolution._144p]: 300000,    // 300kbps
+            [VideoResolution._240p]: 500000,    // 500kbps
+            [VideoResolution._480p]: 1500000,   // 1.5Mbps
+            [VideoResolution._720p]: 3000000,   // 3.0Mbps
+            [VideoResolution._1080p]: 6000000,  // 6.0Mbps
+            [VideoResolution._1440p]: 12000000, // 12.0Mbps
+            [VideoResolution._2160p]: 25000000, // 25.0Mbps
+        };
+
+        // Calculate the scaling factor based on frame rate. (scaled to 60 FPS)
+        const frameRateFactor = 1 - (1 - frameRate / 60) * this.DECREASED_FACTOR;
+
+        // Return the adjusted bitrate based on the frame rate.
+        return bitrateMap[resolution] * frameRateFactor;
     }
 
     static perform(uuid: string, data?: VideoEncodeData) {
@@ -188,6 +217,7 @@ export class VideoEncode {
 
             // Check the resolution of a given video by referring to stream.
             if (videoStream && videoStream.width && videoStream.height) {
+                const frameRate = eval(videoStream.avg_frame_rate ?? "30") as number;
                 const aspectRatio = videoStream.height / videoStream.width;
                 const resolutions: [VideoResolution, number][] = [
                     [VideoResolution._144p, 256],
@@ -220,8 +250,12 @@ export class VideoEncode {
                         while (queues.length > 0) {
                             const resolution = queues.shift() as VideoResolution | undefined;
                             if (!resolution) return;
-    
-                            await this.encodeVideo(uuid, encode, vCodec, {resolution, aspectRatio});
+
+                            await this.encodeVideo(uuid, encode, vCodec, {
+                                frameRate: frameRate,
+                                resolution: resolution,
+                                aspectRatio: aspectRatio,
+                            });
                         }
                     })();
                 }
