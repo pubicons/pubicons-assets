@@ -107,18 +107,18 @@ export class VideoEncode {
                 .setSize(sizePixels)
                 .videoCodec(codec.codec)
                 .addOptions(codec.options);
-    
+
             const setState = () => {
                 REDIS_CLIENT.hSet("VideoProcessing", uuid, JSON.stringify(data));
             };
-    
+
             ffmpegCommand.on("start", () => {
                 if (data[codecName][resolution]) {
                     data[codecName][resolution].status = VideoEncodeStatus.START;
                     setState();
                 }
             });
-    
+
             ffmpegCommand.on("end", () => {
                 if (data[codecName][resolution]) {
                     data[codecName][resolution].status = VideoEncodeStatus.FINISHED;
@@ -127,7 +127,7 @@ export class VideoEncode {
                 }
                 resolve();
             });
-    
+
             ffmpegCommand.on("progress", (progress) => {
                 if (data[codecName][resolution]) {
                     data[codecName][resolution].status = VideoEncodeStatus.PROGRESS;
@@ -135,7 +135,7 @@ export class VideoEncode {
                     setState();
                 }
             });
-    
+
             ffmpegCommand.on("error", (error) => {
                 if (data[codecName][resolution]) {
                     data[codecName][resolution].status = VideoEncodeStatus.ERROR;
@@ -143,7 +143,7 @@ export class VideoEncode {
                 }
                 reject(error);
             });
-    
+
             ffmpegCommand.run();
         });
     }

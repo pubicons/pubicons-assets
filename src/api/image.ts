@@ -76,10 +76,12 @@ export const IMAGE_HTTP_HANDLER = new HTTPHandler({
             webp = webp.resize(resizeOptions);
         }
 
-        PG_CLIENT.query(`INSERT INTO "Images"("id", "avif", "webp") VALUES($1, $2, $3)`, [
+        PG_CLIENT.query(`INSERT INTO "Images"("id", "avif", "webp", "width", "height") VALUES($1, $2, $3, $4, $5)`, [
             uuid,
             await avif.toBuffer(),
-            await webp.toBuffer()
+            await webp.toBuffer(),
+            result.width,
+            result.height
         ]);
     },
     get: async (request, response, _) => {
