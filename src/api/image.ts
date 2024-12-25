@@ -4,6 +4,7 @@ import { HTTPHandler, HTTPUtil, PathUtil } from "core";
 import { UUID } from "core/src";
 import { APIException } from "core/src/api";
 import { METHODS, ServerResponse } from "http";
+import accepts from "accepts";
 
 interface ImageConstraint {
     maxWidth?: number;
@@ -86,9 +87,18 @@ export const IMAGE_HTTP_HANDLER = new HTTPHandler({
     },
     get: async (request, response, _) => {
         const params = PathUtil.toUrl(request.url!).searchParams;
-        const type = params.get("type") ?? "avif";
+        const accept = accepts(request).type(["avif", "webp"]);
+        if (!accept) {
+            response.writeHead(406);
+            response.end(APIException.UNSUPPORTED_RESPONSE_FORMAT);
+            return;
+        }
+
+        const type = params.get("type") ?? accept;
         const uuid = params.get("uuid");
         if (uuid) {
+            accepts(request).type(["avif", "webp"]);
+
             if (type != "avif" && type != "webp") {
                 response.writeHead(400);
                 response.end(APIException.INVALID_REQUEST_FORMAT);
