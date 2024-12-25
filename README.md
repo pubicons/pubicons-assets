@@ -3,6 +3,8 @@ Create a `.env` file in the server/ folder and write the code according to the f
 
 - In a single client (test environment), the ports of the assets(image, video) server must be different from those of the existing web server.
 
+## The Required Properties
+
 ```env
 POSTGRES_DB=pubicons
 POSTGRES_PORT=5432
@@ -11,7 +13,10 @@ POSTGRES_PASSWORD=...
 
 REDIS_PORT=6379
 REDIS_PASSWORD=...{0}
+```
 
+## The Non-Required Properties
+```env
 # This property is not required.
 AV1_ENCODER=libsvtav1
 
@@ -26,6 +31,15 @@ H265_ENCODER=libx265
 # Radeon GPU = h264_amf
 # NVIDIA GPU = h264_nvenc
 H264_ENCODER=libx264
+
+# This properties is not required.
+BITRATE_P144=300000; ## 300kbps
+BITRATE_P240=500000; ## 500kbps
+BITRATE_P480=1500000; ## 1.5Mbps
+BITRATE_P720=3000000; ## 3.0Mbps
+BITRATE_P1080=6000000; ## 6.0Mbps
+BITRATE_P1440=12000000; ## 12.0Mbps
+BITRATE_P2160=25000000; ## 12.0Mbps
 ```
 
 And then, create a `redis.conf` file in the server/ folder and write the code according to the format below.

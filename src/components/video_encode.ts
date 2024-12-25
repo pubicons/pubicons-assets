@@ -184,13 +184,13 @@ export class VideoEncode {
 
     static averageBitrateOf(resolution: VideoResolution, frameRate: number) {
         const bitrateMap = {
-            [VideoResolution._144p]: 300000,    // 300kbps
-            [VideoResolution._240p]: 500000,    // 500kbps
-            [VideoResolution._480p]: 1500000,   // 1.5Mbps
-            [VideoResolution._720p]: 3000000,   // 3.0Mbps
-            [VideoResolution._1080p]: 6000000,  // 6.0Mbps
-            [VideoResolution._1440p]: 12000000, // 12.0Mbps
-            [VideoResolution._2160p]: 25000000, // 25.0Mbps
+            [VideoResolution._144p]: parseInt(process.env.BITRATE_144P ?? "") || 300000, // 300kbps
+            [VideoResolution._240p]: parseInt(process.env.BITRATE_240P ?? "") || 500000, // 500kbps
+            [VideoResolution._480p]: parseInt(process.env.BITRATE_480P ?? "") || 1500000, // 1.5Mbps
+            [VideoResolution._720p]: parseInt(process.env.BITRATE_720P ?? "") || 3000000, // 3.0Mbps
+            [VideoResolution._1080p]: parseInt(process.env.BITRATE_1080P ?? "") || 6000000, // 6.0Mbps
+            [VideoResolution._1440p]: parseInt(process.env.BITRATE_1440P ?? "") || 12000000, // 12.0Mbps
+            [VideoResolution._2160p]: parseInt(process.env.BITRATE_2160P ?? "") || 25000000, // 25.0Mbps
         };
 
         // Calculate the scaling factor based on frame rate. (scaled to 60 FPS)
