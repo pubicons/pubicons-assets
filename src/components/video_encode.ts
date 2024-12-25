@@ -154,19 +154,19 @@ export class VideoEncode {
                 name: "av1",
                 extension: "webm",
                 codec: process.env.AV1_ENCODER ?? "libsvtav1",
-                options: ["-crf 35", "-preset 6"]
+                options: ["-crf 30", "-preset 6"]
             };
             case "h265": return {
                 name: "h265",
                 extension: "mp4",
                 codec: process.env.H265_ENCODER ?? "libx265",
-                options: ["-crf 35"]
+                options: ["-crf 30"]
             };
             case "h264": return {
                 name: "h264",
                 extension: "mp4",
                 codec: process.env.H264_ENCODER ?? "libx264",
-                options: ["-crf 28"]
+                options: ["-crf 30"]
             }
         }
     }
