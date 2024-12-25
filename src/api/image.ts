@@ -88,16 +88,14 @@ export const IMAGE_HTTP_HANDLER = new HTTPHandler({
     get: async (request, response, _) => {
         const params = PathUtil.toUrl(request.url!).searchParams;
         const accept = accepts(request).type(["avif", "webp"]);
-        if (!accept) {
-            response.writeHead(406);
-            response.end(APIException.UNSUPPORTED_RESPONSE_FORMAT);
-            return;
-        }
-
         const type = params.get("type") ?? accept;
         const uuid = params.get("uuid");
         if (uuid) {
-            accepts(request).type(["avif", "webp"]);
+            if (!accept && type == null) {
+                response.writeHead(406);
+                response.end(APIException.UNSUPPORTED_RESPONSE_FORMAT);
+                return;
+            }
 
             if (type != "avif" && type != "webp") {
                 response.writeHead(400);
