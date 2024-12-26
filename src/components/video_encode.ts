@@ -1,7 +1,7 @@
 import fs from "fs";
 import ffmpeg from "fluent-ffmpeg";
 import path from "path";
-import { REDIS_CLIENT } from "..";
+import { PG_CLIENT, REDIS_CLIENT } from "..";
 
 export type VideoEncodeQueueStatus = {status: VideoEncodeStatus, progressPercent?: number};
 export type VideoEncodeResolutionQueues = {
